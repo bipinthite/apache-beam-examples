@@ -1,0 +1,65 @@
+---
+
+    version: "3.3"
+
+    services:
+
+      # Flink Job Manager
+      jobmanager:
+        image: flink:1.11.0-scala_2.11
+		command: standalone-job --job-classname org.apache.beam.examples.WordCount --runner=FlinkRunner --inputFile=/data/file.txt --output=/tmp/counts
+        ports:
+          - 8081:8081
+		environment:
+        - |
+          FLINK_PROPERTIES=
+          jobmanager.rpc.address: jobmanager
+		  parallelism.default: 2
+        networks:
+          flink-job:
+            aliases:
+              - jobmanager
+        volumes:
+          - ./target/fatjar:/opt/flink/usrlib
+		  - ./data:/data
+        deploy:
+          replicas: 1
+          resources:
+            limits:
+              cpus: "0.5"
+              memory: 300m
+          restart_policy:
+            condition: on-failure
+            delay: 10s
+
+      # Flink Task Manager
+      taskmanager:
+        image: flink:1.11.0-scala_2.11
+		command: taskmanager
+		environment:
+        - |
+          FLINK_PROPERTIES=
+          jobmanager.rpc.address: jobmanager
+          taskmanager.numberOfTaskSlots: 2
+          parallelism.default: 2
+		depends_on: 
+          - jobmanager
+        networks:
+          flink-job:
+            aliases:
+              - taskmanager
+        volumes:
+          - ./target/fatjar:/opt/flink/usrlib
+		  - ./data:/data
+        deploy:
+          replicas: 1
+          resources:
+            limits:
+              cpus: "0.5"
+              memory: 300m
+          restart_policy:
+            condition: on-failure
+            delay: 10s
+
+    networks:
+      - flink-job
